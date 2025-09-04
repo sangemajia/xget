@@ -87,8 +87,17 @@ export const PLATFORMS = {
   'cr-suse': 'https://registry.suse.com',
   'cr-opensuse': 'https://registry.opensuse.org',
   'cr-gitpod': 'https://registry.gitpod.io',
-  'cr-docker': 'https://registry-1.docker.io'//增加docker hub
+  'cr-docker': 'https://registry-1.docker.io'
 };
+
+/**
+ * Escape special characters for regular expressions
+ * @param {string} string - The string to escape
+ * @returns {string} - The escaped string
+ */
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 /**
  * Unified path transformation function
@@ -97,16 +106,10 @@ export const PLATFORMS = {
  * @returns {string} - The transformed path
  */
 export function transformPath(path, platformKey) {
-
- // 输入校验（新增）
-  // 处理非字符串输入（如 null、undefined、number 等）
+  // Input validation
   if (typeof path !== 'string') {
-    // 根据业务需求返回空字符串或原输入的字符串形式（如 String(path)）
-    // 示例：返回空字符串（更安全）
     return '';
   }
-
-  // 处理空字符串（可选，根据业务需求）
   if (path.trim() === '') {
     return '';
   }
@@ -116,44 +119,29 @@ export function transformPath(path, platformKey) {
   }
 
   const prefix = `/${platformKey.replace(/-/g, '/')}/`;
-  let transformedPath = path.replace(
-    new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\\\]/g, '\\$&')}`),
-    '/'
-  );
+  const escapedPrefix = escapeRegExp(prefix);
   let transformedPath = path.replace(new RegExp(`^${escapedPrefix}`), '/');
 
-  // Docker Hub 特殊处理
+  // Docker Hub special handling
   if (platformKey === 'cr-docker') {
-    // 处理官方镜像路径缩写
+    // Handle official image path shorthand
     if (transformedPath.startsWith('/v2/')) {
-      // 官方镜像路径转换: /v2/alpine/... -> /v2/library/alpine/...
       const parts = transformedPath.split('/');
-      if (parts.length >= 3 && !parts[2].includes('/')) {
+      // Check if it's an official image (no username in path)
+      if (parts.length >= 3 && !parts[2].includes('/') && !parts[2].includes(':')) {
         parts.splice(2, 0, 'library');
         transformedPath = parts.join('/');
       }
     }
-    
-    // 处理非官方镜像路径
-    if (transformedPath.startsWith('/v2/')) {
-      // 非官方镜像路径保持不变: /v2/user/repo/...
-      return transformedPath;
-    }
+    return transformedPath;
   }
 
   // Special handling for crates.io API paths
   if (platformKey === 'crates') {
-    // Transform paths to include the API prefix
     if (transformedPath.startsWith('/')) {
-      // Handle different API endpoints:
-      // /serde/1.0.0/download -> /api/v1/crates/serde/1.0.0/download
-      // /serde -> /api/v1/crates/serde
-      // /?q=query -> /api/v1/crates?q=query
       if (transformedPath === '/' || transformedPath.startsWith('/?')) {
-        // Search endpoint
         transformedPath = transformedPath.replace('/', '/api/v1/crates');
       } else {
-        // Crate-specific endpoints
         transformedPath = `/api/v1/crates${transformedPath}`;
       }
     }
@@ -161,36 +149,21 @@ export function transformPath(path, platformKey) {
 
   // Special handling for Homebrew API paths
   if (platformKey === 'homebrew-api') {
-    // Transform paths for Homebrew API endpoints
     if (transformedPath.startsWith('/')) {
-      // Handle different API endpoints:
-      // /formula/git.json -> /formula/git.json
-      // /cask/docker.json -> /cask/docker.json
-      // Keep the API paths as-is since they're already correct
       return transformedPath;
     }
   }
 
   // Special handling for Homebrew bottles
   if (platformKey === 'homebrew-bottles') {
-    // Transform paths for Homebrew bottles
     if (transformedPath.startsWith('/')) {
-      // Transform bottle paths to ghcr.io container registry format
-      // /v2/homebrew/core/git/manifests/2.39.0 -> /v2/homebrew/core/git/manifests/2.39.0
       return transformedPath;
     }
   }
 
   // Special handling for Jenkins plugins
   if (platformKey === 'jenkins') {
-    // Transform paths for Jenkins update center and plugin downloads
     if (transformedPath.startsWith('/')) {
-      // Handle different Jenkins endpoints:
-      // /update-center.json -> /current/update-center.json
-      // /update-center.actual.json -> /current/update-center.actual.json
-      // /experimental/update-center.json -> /experimental/update-center.json
-      // /download/plugins/... -> /download/plugins/...
-
       if (transformedPath === '/update-center.json') {
         return '/current/update-center.json';
       } else if (transformedPath === '/update-center.actual.json') {
@@ -200,10 +173,8 @@ export function transformPath(path, platformKey) {
         transformedPath.startsWith('/download/') ||
         transformedPath.startsWith('/current/')
       ) {
-        // Keep experimental, download, and current paths as-is
         return transformedPath;
       } else {
-        // For other paths, assume they are relative to current
         return `/current${transformedPath}`;
       }
     }
@@ -211,12 +182,7 @@ export function transformPath(path, platformKey) {
 
   // Special handling for Homebrew repositories
   if (platformKey === 'homebrew') {
-    // Transform paths for Homebrew Git repositories
     if (transformedPath.startsWith('/')) {
-      // Handle different repository endpoints:
-      // /brew -> /brew
-      // /homebrew-core -> /homebrew-core
-      // /homebrew-cask -> /homebrew-cask
       return transformedPath;
     }
   }
