@@ -71,7 +71,6 @@ export const PLATFORMS = {
   'ip-hyperbolic': 'https://api.hyperbolic.xyz',
 
   // Container Registries
-  'cr-docker': 'https://registry-1.docker.io',
   'cr-quay': 'https://quay.io',
   'cr-gcr': 'https://gcr.io',
   'cr-mcr': 'https://mcr.microsoft.com',
@@ -106,34 +105,6 @@ export function transformPath(path, platformKey) {
     new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
     '/'
   );
-
-  // 特殊处理 Docker Hub 容器注册表
-  if (platformKey === 'cr-docker') {
-    // 处理官方镜像缩写
-    if (transformedPath.startsWith('/v2/')) {
-      const pathParts = transformedPath.split('/');
-      
-      // 路径格式: /v2/<repository>/<resource>/...
-      if (pathParts.length >= 4 && 
-          !pathParts[2].includes('/') && 
-          !pathParts[2].includes(':') &&
-          pathParts[3] !== 'library') {
-        
-        // 检查是否是官方镜像（没有命名空间）
-        const isOfficialImage = !pathParts[2].includes('/') && 
-                               !pathParts[2].includes(':') &&
-                               pathParts[3] !== 'library';
-        
-        if (isOfficialImage) {
-          // 插入 'library' 命名空间
-          pathParts.splice(2, 0, 'library');
-          transformedPath = pathParts.join('/');
-        }
-      }
-    }
-    
-    return transformedPath;
-  }
 
   // Special handling for crates.io API paths
   if (platformKey === 'crates') {
