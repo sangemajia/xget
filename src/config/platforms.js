@@ -128,7 +128,14 @@ export function transformPath(path, platformKey) {
     if (transformedPath.startsWith('/v2/')) {
       const parts = transformedPath.split('/');
       // Check if it's an official image (no username in path)
-      if (parts.length >= 3 && !parts[2].includes('/') && !parts[2].includes(':')) {
+      const isOfficialImage = 
+        parts.length >= 3 && 
+        !parts[2].includes('/') && 
+        !parts[2].includes(':') && 
+        !parts[2].includes('.');
+
+      if (isOfficialImage) {
+        // 官方镜像：/v2/alpine → /v2/library/alpine
         parts.splice(2, 0, 'library');
         transformedPath = parts.join('/');
       }
