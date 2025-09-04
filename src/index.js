@@ -339,6 +339,11 @@ async function handleRequest(request, env, ctx) {
 
     // Transform URL based on platform using unified logic
     const targetPath = transformPath(effectivePath, platform);
+    
+    // 确保路径转换成功
+    if (!targetPath || typeof targetPath !== 'string') {
+      return createErrorResponse('Path transformation failed', 500);
+    }
 
     // For container registries, ensure we add the /v2 prefix for the Docker API
     let finalTargetPath;
