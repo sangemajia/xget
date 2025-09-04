@@ -86,7 +86,8 @@ export const PLATFORMS = {
   'cr-heroku': 'https://registry.heroku.com',
   'cr-suse': 'https://registry.suse.com',
   'cr-opensuse': 'https://registry.opensuse.org',
-  'cr-gitpod': 'https://registry.gitpod.io'
+  'cr-gitpod': 'https://registry.gitpod.io',
+'cr-docker': 'https://registry-1.docker.io'//增加docker hub
 };
 
 /**
