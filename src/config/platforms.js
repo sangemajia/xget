@@ -120,6 +120,26 @@ export function transformPath(path, platformKey) {
     new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\\\]/g, '\\$&')}`),
     '/'
   );
+  let transformedPath = path.replace(new RegExp(`^${escapedPrefix}`), '/');
+
+  // Docker Hub 特殊处理
+  if (platformKey === 'cr-docker') {
+    // 处理官方镜像路径缩写
+    if (transformedPath.startsWith('/v2/')) {
+      // 官方镜像路径转换: /v2/alpine/... -> /v2/library/alpine/...
+      const parts = transformedPath.split('/');
+      if (parts.length >= 3 && !parts[2].includes('/')) {
+        parts.splice(2, 0, 'library');
+        transformedPath = parts.join('/');
+      }
+    }
+    
+    // 处理非官方镜像路径
+    if (transformedPath.startsWith('/v2/')) {
+      // 非官方镜像路径保持不变: /v2/user/repo/...
+      return transformedPath;
+    }
+  }
 
   // Special handling for crates.io API paths
   if (platformKey === 'crates') {
