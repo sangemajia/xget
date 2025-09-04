@@ -96,6 +96,20 @@ export const PLATFORMS = {
  * @returns {string} - The transformed path
  */
 export function transformPath(path, platformKey) {
+
+ // 输入校验（新增）
+  // 处理非字符串输入（如 null、undefined、number 等）
+  if (typeof path !== 'string') {
+    // 根据业务需求返回空字符串或原输入的字符串形式（如 String(path)）
+    // 示例：返回空字符串（更安全）
+    return '';
+  }
+
+  // 处理空字符串（可选，根据业务需求）
+  if (path.trim() === '') {
+    return '';
+  }
+
   if (!PLATFORMS[platformKey]) {
     return path;
   }
