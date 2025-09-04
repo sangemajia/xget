@@ -333,6 +333,13 @@ async function handleRequest(request, env, ctx) {
       const scope = url.searchParams.get('scope');
       return await fetchToken(wwwAuthenticate, scope || '', authorization || '');
     }
+ // 关键修复：确保Docker请求使用正确的路径前缀
+    if (isDocker) {
+      if (!url.pathname.startsWith('/cr/') && !url.pathname.startsWith('/v2/cr/')) {
+        return createErrorResponse('Container registry requests must use /cr/ prefix', 400);
+      }
+      effectivePath = url.pathname.replace(/^\/v2/, '');
+    }
 
     const isGit = isGitRequest(request, url);
     const isAI = isAIInferenceRequest(request, url);
