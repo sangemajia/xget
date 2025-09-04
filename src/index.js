@@ -259,15 +259,20 @@ async function handleRequest(request, env, ctx) {
       if (!authenticateStr) return resp;
       
       const wwwAuthenticate = parseAuthenticate(authenticateStr);
-      const scope = url.searchParams.get('scope');
+      let scope = url.searchParams.get('scope');
       
-      // Special handling for Docker Hub scope
-      let effectiveScope = scope || '';
-      if (platform === 'cr-docker' && !scope) {
-        effectiveScope = 'repository:library/hello-world:pull';
+      // 关键修复：处理 Docker Hub 官方镜像的 scope
+      if (platform === 'cr-docker' && scope) {
+        // 解析 scope 格式：repository:<repo>:<action>
+        const [type, repo, action] = scope.split(':');
+        
+        // 如果是官方镜像（没有命名空间），添加 library/ 前缀
+        if (type === 'repository' && !repo.includes('/')) {
+          scope = `repository:library/${repo}:${action}`;
+        }
       }
       
-      return await fetchToken(wwwAuthenticate, effectiveScope, authorization || '');
+      return await fetchToken(wwwAuthenticate, scope || '', authorization || '');
     }
 
     const isGit = isGitRequest(request, url);
