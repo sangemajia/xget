@@ -367,7 +367,8 @@ async function handleRequest(request, env, ctx) {
         return resp;
       }
       const wwwAuthenticate = parseAuthenticate(authenticateStr);
-      const scope = url.searchParams.get('scope');
+      //此处原作者用const
+	  let scope = url.searchParams.get('scope');
       return await fetchToken(wwwAuthenticate, scope || '', authorization || '');
     }
 
