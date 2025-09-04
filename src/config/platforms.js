@@ -96,7 +96,7 @@ export const PLATFORMS = {
  * @returns {string} - The escaped string
  */
 function escapeRegExp(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return string.replace(/[.*+?^${}()|[\]\\\\]/g, '\\$&','/');
 }
 
 /**
