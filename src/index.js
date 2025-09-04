@@ -326,7 +326,7 @@ async function handleRequest(request, env, ctx) {
         return resp;
       }
       const authenticateStr = resp.headers.get('WWW-Authenticate');
-      if (authenticateStr === null) {
+      if (!authenticateStr) {
         return resp;
       }
       const wwwAuthenticate = parseAuthenticate(authenticateStr);
