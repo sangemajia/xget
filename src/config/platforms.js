@@ -107,6 +107,34 @@ export function transformPath(path, platformKey) {
     '/'
   );
 
+  // 特殊处理 Docker Hub 容器注册表
+  if (platformKey === 'cr-docker') {
+    // 处理官方镜像缩写
+    if (transformedPath.startsWith('/v2/')) {
+      const pathParts = transformedPath.split('/');
+      
+      // 路径格式: /v2/<repository>/<resource>/...
+      if (pathParts.length >= 4 && 
+          !pathParts[2].includes('/') && 
+          !pathParts[2].includes(':') &&
+          pathParts[3] !== 'library') {
+        
+        // 检查是否是官方镜像（没有命名空间）
+        const isOfficialImage = !pathParts[2].includes('/') && 
+                               !pathParts[2].includes(':') &&
+                               pathParts[3] !== 'library';
+        
+        if (isOfficialImage) {
+          // 插入 'library' 命名空间
+          pathParts.splice(2, 0, 'library');
+          transformedPath = pathParts.join('/');
+        }
+      }
+    }
+    
+    return transformedPath;
+  }
+
   // Special handling for crates.io API paths
   if (platformKey === 'crates') {
     // Transform paths to include the API prefix
