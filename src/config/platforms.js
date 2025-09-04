@@ -123,19 +123,17 @@ export function transformPath(path, platformKey) {
   let transformedPath = path.replace(new RegExp(`^${escapedPrefix}`), '/');
 
   // Docker Hub special handling
-  if (platformKey === 'cr-docker') {
+    if (platformKey === 'cr-docker') {
+    // Ensure path starts with /v2 for Docker Registry API
+    if (!transformedPath.startsWith('/v2/')) {
+      transformedPath = '/v2' + transformedPath;
+    }
+    
     // Handle official image path shorthand
     if (transformedPath.startsWith('/v2/')) {
       const parts = transformedPath.split('/');
-      // Check if it's an official image (no username in path)
-      const isOfficialImage = 
-        parts.length >= 3 && 
-        !parts[2].includes('/') && 
-        !parts[2].includes(':') && 
-        !parts[2].includes('.');
-
-      if (isOfficialImage) {
-        // 官方镜像：/v2/alpine → /v2/library/alpine
+      // Check if it's an official image (simple name without slashes, dots, or colons)
+      if (parts.length >= 3 && parts[2] && !parts[2].includes('/') && !parts[2].includes(':') && !parts[2].includes('.')) {
         parts.splice(2, 0, 'library');
         transformedPath = parts.join('/');
       }
