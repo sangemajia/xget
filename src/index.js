@@ -2,28 +2,31 @@ import { CONFIG, createConfig } from './config/index.js';
 import { transformPath } from './config/platforms.js';
 
 /**
- * 性能监控类，用于记录请求处理过程中的时间指标
+ * Monitors performance metrics during request processing
  */
 class PerformanceMonitor {
+  /**
+   * Initializes a new performance monitor
+   */
   constructor() {
     this.startTime = Date.now();
     this.marks = new Map();
   }
 
   /**
-   * 记录一个时间点
-   * @param {string} name - 时间点名称
+   * Marks a timing point with the given name
+   * @param {string} name - The name of the timing mark
    */
   mark(name) {
     if (this.marks.has(name)) {
-      console.warn(`时间点 "${name}" 已存在`);
+      console.warn(`Mark with name ${name} already exists.`);
     }
     this.marks.set(name, Date.now() - this.startTime);
   }
 
   /**
-   * 获取所有性能指标
-   * @returns {Object} 包含所有时间点的对象
+   * Returns all collected metrics
+   * @returns {Object.<string, number>} Object containing name-timestamp pairs
    */
   getMetrics() {
     return Object.fromEntries(this.marks.entries());
@@ -31,109 +34,139 @@ class PerformanceMonitor {
 }
 
 /**
- * 判断是否为 Docker 容器注册表请求
- * @param {Request} request - 请求对象
- * @param {URL} url - 解析后的 URL 对象
- * @returns {boolean} 是否为 Docker 请求
+ * Detects if a request is a container registry operation
+ * @param {Request} request - The incoming request object
+ * @param {URL} url - Parsed URL object
+ * @returns {boolean} True if this is a container registry operation
  */
 function isDockerRequest(request, url) {
-  // 检查是否为 Docker Registry API v2 端点
-  if (url.pathname.startsWith('/v2/')) return true;
+  // Check for container registry API endpoints
+  if (url.pathname.startsWith('/v2/')) {
+    return true;
+  }
 
-  // 检查 Docker 客户端特有的 User-Agent
+  // Check for Docker-specific User-Agent
   const userAgent = request.headers.get('User-Agent') || '';
-  if (userAgent.toLowerCase().includes('docker/')) return true;
+  if (userAgent.toLowerCase().includes('docker/')) {
+    return true;
+  }
 
-  // 检查 Docker 客户端特有的 Accept 头
+  // Check for Docker-specific Accept headers
   const accept = request.headers.get('Accept') || '';
-  return (
+  if (
     accept.includes('application/vnd.docker.distribution.manifest') ||
     accept.includes('application/vnd.oci.image.manifest') ||
     accept.includes('application/vnd.docker.image.rootfs.diff.tar.gzip')
-  );
-}
-
-/**
- * 判断是否为 Git 操作请求
- * @param {Request} request - 请求对象
- * @param {URL} url - 解析后的 URL 对象
- * @returns {boolean} 是否为 Git 请求
- */
-function isGitRequest(request, url) {
-  // 检查 Git 特有的端点
-  if (url.pathname.endsWith('/info/refs')) return true;
-  if (url.pathname.endsWith('/git-upload-pack') || url.pathname.endsWith('/git-receive-pack')) return true;
-
-  // 检查 Git 特有的 User-Agent
-  const userAgent = request.headers.get('User-Agent') || '';
-  if (userAgent.includes('git/') || userAgent.startsWith('git/')) return true;
-
-  // 检查 Git 特有的查询参数
-  if (url.searchParams.has('service')) {
-    const service = url.searchParams.get('service');
-    return service === 'git-upload-pack' || service === 'git-receive-pack';
-  }
-
-  // 检查 Git 特有的 Content-Type
-  const contentType = request.headers.get('Content-Type') || '';
-  return contentType.includes('git-upload-pack') || contentType.includes('git-receive-pack');
-}
-
-/**
- * 判断是否为 AI 推理请求
- * @param {Request} request - 请求对象
- * @param {URL} url - 解析后的 URL 对象
- * @returns {boolean} 是否为 AI 请求
- */
-function isAIInferenceRequest(request, url) {
-  // 检查 AI 推理特有的路径前缀
-  if (url.pathname.startsWith('/ip/')) return true;
-
-  // 检查常见的 AI 推理 API 端点
-  const aiEndpoints = [
-    '/v1/chat/completions', '/v1/completions', '/v1/messages',
-    '/v1/predictions', '/v1/generate', '/v1/embeddings',
-    '/openai/v1/chat/completions'
-  ];
-  if (aiEndpoints.some(endpoint => url.pathname.includes(endpoint))) return true;
-
-  // 检查 AI 特有的 Content-Type 和请求方法
-  const contentType = request.headers.get('Content-Type') || '';
-  if (contentType.includes('application/json') && request.method === 'POST') {
-    return (
-      url.pathname.includes('/chat/') ||
-      url.pathname.includes('/completions') ||
-      url.pathname.includes('/generate') ||
-      url.pathname.includes('/predict')
-    );
+  ) {
+    return true;
   }
 
   return false;
 }
 
 /**
- * 验证请求的合法性
- * @param {Request} request - 请求对象
- * @param {URL} url - 解析后的 URL 对象
- * @param {import('./config/index.js').ApplicationConfig} config - 应用配置
- * @returns {{valid: boolean, error?: string, status?: number}} 验证结果
+ * Detects if a request is a Git operation
+ * @param {Request} request - The incoming request object
+ * @param {URL} url - Parsed URL object
+ * @returns {boolean} True if this is a Git operation
+ */
+function isGitRequest(request, url) {
+  // Check for Git-specific endpoints
+  if (url.pathname.endsWith('/info/refs')) {
+    return true;
+  }
+
+  if (url.pathname.endsWith('/git-upload-pack') || url.pathname.endsWith('/git-receive-pack')) {
+    return true;
+  }
+
+  // Check for Git user agents (more comprehensive check)
+  const userAgent = request.headers.get('User-Agent') || '';
+  if (userAgent.includes('git/') || userAgent.startsWith('git/')) {
+    return true;
+  }
+
+  // Check for Git-specific query parameters
+  if (url.searchParams.has('service')) {
+    const service = url.searchParams.get('service');
+    return service === 'git-upload-pack' || service === 'git-receive-pack';
+  }
+
+  // Check for Git-specific content types
+  const contentType = request.headers.get('Content-Type') || '';
+  if (contentType.includes('git-upload-pack') || contentType.includes('git-receive-pack')) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Check if the request is for an AI inference provider
+ * @param {Request} request - The incoming request object
+ * @param {URL} url - Parsed URL object
+ * @returns {boolean} True if this is an AI inference request
+ */
+function isAIInferenceRequest(request, url) {
+  // Check for AI inference provider paths (ip/{provider}/...)
+  if (url.pathname.startsWith('/ip/')) {
+    return true;
+  }
+
+  // Check for common AI inference API endpoints
+  const aiEndpoints = [
+    '/v1/chat/completions',
+    '/v1/completions',
+    '/v1/messages',
+    '/v1/predictions',
+    '/v1/generate',
+    '/v1/embeddings',
+    '/openai/v1/chat/completions'
+  ];
+
+  if (aiEndpoints.some(endpoint => url.pathname.includes(endpoint))) {
+    return true;
+  }
+
+  // Check for AI-specific content types
+  const contentType = request.headers.get('Content-Type') || '';
+  if (contentType.includes('application/json') && request.method === 'POST') {
+    // Additional check for common AI inference patterns in URL
+    if (
+      url.pathname.includes('/chat/') ||
+      url.pathname.includes('/completions') ||
+      url.pathname.includes('/generate') ||
+      url.pathname.includes('/predict')
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Validates incoming requests against security rules
+ * @param {Request} request - The incoming request object
+ * @param {URL} url - Parsed URL object
+ * @param {import('./config/index.js').ApplicationConfig} config - Configuration object
+ * @returns {{valid: boolean, error?: string, status?: number}} Validation result
  */
 function validateRequest(request, url, config = CONFIG) {
+  // Allow POST method for Git, Docker, and AI inference operations
   const isGit = isGitRequest(request, url);
   const isDocker = isDockerRequest(request, url);
   const isAI = isAIInferenceRequest(request, url);
 
-  // 允许的方法：安全方法 + Git/Docker/AI 扩展方法
-  const allowedMethods = isGit || isDocker || isAI
-    ? ['GET', 'HEAD', 'POST', 'PUT', 'PATCH']
-    : config.SECURITY.ALLOWED_METHODS;
+  const allowedMethods =
+    isGit || isDocker || isAI
+      ? ['GET', 'HEAD', 'POST', 'PUT', 'PATCH']
+      : config.SECURITY.ALLOWED_METHODS;
 
-  // 检查请求方法是否合法
   if (!allowedMethods.includes(request.method)) {
     return { valid: false, error: 'Method not allowed', status: 405 };
   }
 
-  // 检查路径长度是否合法
   if (url.pathname.length > config.SECURITY.MAX_PATH_LENGTH) {
     return { valid: false, error: 'Path too long', status: 414 };
   }
@@ -142,11 +175,11 @@ function validateRequest(request, url, config = CONFIG) {
 }
 
 /**
- * 创建标准化错误响应
- * @param {string} message - 错误信息
- * @param {number} status - HTTP 状态码
- * @param {boolean} includeDetails - 是否包含详细错误信息
- * @returns {Response} 错误响应对象
+ * Creates a standardized error response
+ * @param {string} message - Error message
+ * @param {number} status - HTTP status code
+ * @param {boolean} includeDetails - Whether to include detailed error information
+ * @returns {Response} Error response
  */
 function createErrorResponse(message, status, includeDetails = false) {
   const errorBody = includeDetails
@@ -164,9 +197,9 @@ function createErrorResponse(message, status, includeDetails = false) {
 }
 
 /**
- * 为响应添加安全头部
- * @param {Headers} headers - 原始响应头
- * @returns {Headers} 添加安全头部后的响应头
+ * Adds security headers to the response
+ * @param {Headers} headers - Headers object to modify
+ * @returns {Headers} Modified headers object
  */
 function addSecurityHeaders(headers) {
   headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
@@ -179,51 +212,49 @@ function addSecurityHeaders(headers) {
 }
 
 /**
- * 解析 Docker 的 WWW-Authenticate 头部
- * @param {string} authenticateStr - WWW-Authenticate 头部值
- * @returns {{realm: string, service: string}} 解析后的认证信息
+ * Parses Docker WWW-Authenticate header
+ * @param {string} authenticateStr - The WWW-Authenticate header value
+ * @returns {{realm: string, service: string}} Parsed authentication info
  */
 function parseAuthenticate(authenticateStr) {
-  // 正则匹配 Bearer realm="..." 和 service="..."
-  const re = /Bearer realm="([^"]+)",\s*service="([^"]+)"/;
-  const match = authenticateStr.match(re);
-  if (!match || match.length < 3) {
-    throw new Error(`无效的 Www-Authenticate 头部: ${authenticateStr}`);
+  // sample: Bearer realm="https://auth.ipv6.docker.com/token",service="registry.docker.io"
+  const re = /(?<=\=")(?:\\.|[^"\\])*(?=")/g;
+  const matches = authenticateStr.match(re);
+  if (matches == null || matches.length < 2) {
+    throw new Error(`invalid Www-Authenticate Header: ${authenticateStr}`);
   }
   return {
-    realm: match[1],
-    service: match[2]
+    realm: matches[0],
+    service: matches[1]
   };
 }
 
 /**
- * 从容器注册表获取认证令牌
- * @param {{realm: string, service: string}} wwwAuthenticate - 解析后的认证信息
- * @param {string} scope - 认证范围
- * @param {string} authorization - 原始请求的 Authorization 头部值
- * @returns {Promise<Response>} 获取令牌的响应
+ * Fetches authentication token from container registry
+ * @param {{realm: string, service: string}} wwwAuthenticate - Authentication info
+ * @param {string} scope - The scope for the token
+ * @param {string} authorization - Authorization header value
+ * @returns {Promise<Response>} Token response
  */
 async function fetchToken(wwwAuthenticate, scope, authorization) {
   const url = new URL(wwwAuthenticate.realm);
-  if (wwwAuthenticate.service) {
+  if (wwwAuthenticate.service.length) {
     url.searchParams.set('service', wwwAuthenticate.service);
   }
   if (scope) {
     url.searchParams.set('scope', scope);
   }
-
   const headers = new Headers();
   if (authorization) {
     headers.set('Authorization', authorization);
   }
-
   return await fetch(url, { method: 'GET', headers });
 }
 
 /**
- * 创建容器注册表未授权响应
- * @param {URL} url - 请求的 URL 对象
- * @returns {Response} 未授权响应
+ * Creates unauthorized response for container registry
+ * @param {URL} url - Request URL
+ * @returns {Response} Unauthorized response
  */
 function responseUnauthorized(url) {
   const headers = new Headers();
@@ -235,21 +266,22 @@ function responseUnauthorized(url) {
 }
 
 /**
- * 处理请求的核心逻辑（缓存、重试、安全等）
- * @param {Request} request - 请求对象
- * @param {Object} env - 环境变量
- * @param {ExecutionContext} ctx - Cloudflare Workers 执行上下文
- * @returns {Promise<Response>} 最终响应对象
+ * Handles incoming requests with caching, retries, and security measures
+ * @param {Request} request - The incoming request
+ * @param {Object} env - Environment variables
+ * @param {ExecutionContext} ctx - Cloudflare Workers execution context
+ * @returns {Promise<Response>} The response object
  */
 async function handleRequest(request, env, ctx) {
   try {
-    // 初始化配置（环境变量覆盖默认配置）
+    // Create config with environment variable overrides
     const config = env ? createConfig(env) : CONFIG;
     const url = new URL(request.url);
     const isDocker = isDockerRequest(request, url);
+
     const monitor = new PerformanceMonitor();
 
-    // 处理 Docker API 版本检查（/v2/ 端点）
+    // Handle Docker API version check
     if (isDocker && (url.pathname === '/v2/' || url.pathname === '/v2')) {
       const headers = new Headers({
         'Docker-Distribution-Api-Version': 'registry/2.0',
@@ -259,103 +291,113 @@ async function handleRequest(request, env, ctx) {
       return new Response('{}', { status: 200, headers });
     }
 
-    // 重定向根路径到 GitHub 仓库
+    // Redirect root path or invalid platforms to GitHub repository
     if (url.pathname === '/' || url.pathname === '') {
-      return Response.redirect('https://github.com/xixu-me/Xget', 302);
+      const HOME_PAGE_URL = 'https://github.com/xixu-me/Xget';
+      return Response.redirect(HOME_PAGE_URL, 302);
     }
 
-    // 验证请求合法性
     const validation = validateRequest(request, url, config);
     if (!validation.valid) {
       return createErrorResponse(validation.error || 'Validation failed', validation.status || 400);
     }
 
-    // 解析目标平台和路径
+    // Parse platform and path
     let platform;
     let effectivePath = url.pathname;
 
-    // 处理容器注册表路径（去除 /v2 前缀）
+    // Handle container registry paths specially
     if (isDocker) {
+      // For Docker requests (excluding version check which is handled above),
+      // check if they have /cr/ prefix
       if (!url.pathname.startsWith('/cr/') && !url.pathname.startsWith('/v2/cr/')) {
-        return createErrorResponse('容器注册表请求必须使用 /cr/ 前缀', 400);
+        return createErrorResponse('container registry requests must use /cr/ prefix', 400);
       }
-      effectivePath = url.pathname.replace(/^\/v2/, ''); // 转换为 /cr/docker/alpine/...
+      // Remove /v2 from the path for container registry API consistency if present
+      effectivePath = url.pathname.replace(/^\/v2/, '');
     }
 
-    // 检测目标平台（按路径长度倒序匹配，优先更具体的路径）
+    // Platform detection using transform patterns
+    // Sort platforms by path length (descending) to prioritize more specific paths
+    // e.g., conda/community should match before conda, pypi/files before pypi
     const sortedPlatforms = Object.keys(config.PLATFORMS).sort((a, b) => {
       const pathA = `/${a.replace('-', '/')}/`;
       const pathB = `/${b.replace('-', '/')}/`;
       return pathB.length - pathA.length;
     });
 
-    platform = sortedPlatforms.find(key => {
-      const expectedPrefix = `/${key.replace('-', '/')}/`;
-      return effectivePath.startsWith(expectedPrefix);
-    }) || effectivePath.split('/')[1]; // 备用：取路径第一段作为平台
+    platform =
+      sortedPlatforms.find(key => {
+        const expectedPrefix = `/${key.replace('-', '/')}/`;
+        return effectivePath.startsWith(expectedPrefix);
+      }) || effectivePath.split('/')[1];
 
-    // 验证平台是否存在
     if (!platform || !config.PLATFORMS[platform]) {
-      return Response.redirect('https://github.com/xixu-me/Xget', 302);
+      const HOME_PAGE_URL = 'https://github.com/xixu-me/Xget';
+      return Response.redirect(HOME_PAGE_URL, 302);
     }
 
-    // 转换路径为目标平台的格式
+    // Transform URL based on platform using unified logic
     const targetPath = transformPath(effectivePath, platform);
-    const finalTargetPath = platform.startsWith('cr-') ? `/v2${targetPath}` : targetPath; // 容器注册表添加 /v2 前缀
-    const targetUrl = `${config.PLATFORMS[platform]}${finalTargetPath}${url.search}`; // 拼接完整目标 URL
-    const authorization = request.headers.get('Authorization'); // 原始请求的认证头
 
-    // 处理 Docker 认证（/v2/auth 端点）
+    // For container registries, ensure we add the /v2 prefix for the Docker API
+    let finalTargetPath;
+    if (platform.startsWith('cr-')) {
+      finalTargetPath = `/v2${targetPath}`;
+    } else {
+      finalTargetPath = targetPath;
+    }
+
+    const targetUrl = `${config.PLATFORMS[platform]}${finalTargetPath}${url.search}`;
+    const authorization = request.headers.get('Authorization');
+
+    // Handle Docker authentication
     if (isDocker && url.pathname === '/v2/auth') {
       const newUrl = new URL(`${config.PLATFORMS[platform]}/v2/`);
-      const resp = await fetch(newUrl.toString(), { method: 'GET', redirect: 'follow' });
-
-      if (resp.status !== 401) return resp; // 非 401 响应直接返回
-
-      const authenticateStr = resp.headers.get('WWW-Authenticate');
-      if (!authenticateStr) return resp; // 无认证头直接返回
-
-      // 解析认证信息并获取令牌
-      const wwwAuthenticate = parseAuthenticate(authenticateStr);
-      let scope = url.searchParams.get('scope'); // 从请求参数中获取 scope
-
-      // 特殊处理 Docker Hub 官方镜像的 scope（自动添加 library/ 前缀）
-      if (platform === 'cr-docker' && scope) {
-        const [type, repo, action] = scope.split(':');
-        if (type === 'repository' && !repo.includes('/')) {
-          scope = `repository:library/${repo}:${action}`; // 官方镜像添加 library/ 前缀
-        }
+      const resp = await fetch(newUrl.toString(), {
+        method: 'GET',
+        redirect: 'follow'
+      });
+      if (resp.status !== 401) {
+        return resp;
       }
-
-      // 获取令牌（优先使用空认证头获取公共令牌）
+      const authenticateStr = resp.headers.get('WWW-Authenticate');
+      if (authenticateStr === null) {
+        return resp;
+      }
+      const wwwAuthenticate = parseAuthenticate(authenticateStr);
+      const scope = url.searchParams.get('scope');
       return await fetchToken(wwwAuthenticate, scope || '', authorization || '');
     }
 
-    // 检测是否为 Git 或 AI 请求
+    // Check if this is a Git operation
     const isGit = isGitRequest(request, url);
+
+    // Check if this is an AI inference request
     const isAI = isAIInferenceRequest(request, url);
 
-    // 缓存处理（跳过 Git/Docker/AI 请求）
+    // Check cache first (skip cache for Git, Docker, and AI inference operations)
+    /** @type {Cache} */
+    // @ts-ignore - Cloudflare Workers cache API
+    const cache = caches.default;
     let response;
-    if (!isGit && !isDocker && !isAI) {
-      // @ts-ignore - Cloudflare Workers 内置缓存 API
-      const cache = caches.default;
-      const cacheKey = new Request(targetUrl, request); // 构造缓存键（包含请求方法和头部）
 
-      // 尝试命中缓存
+    if (!isGit && !isDocker && !isAI) {
+      // For Range requests, try cache match first
+      const cacheKey = new Request(targetUrl, request);
       response = await cache.match(cacheKey);
       if (response) {
         monitor.mark('cache_hit');
         return response;
       }
 
-      // 处理 Range 请求的缓存（先尝试完整内容缓存）
+      // If Range request missed cache, try with original request to see if we have full content cached
       const rangeHeader = request.headers.get('Range');
       if (rangeHeader) {
         const fullContentKey = new Request(targetUrl, {
           method: request.method,
           headers: new Headers(
-            [...request.headers.entries()].filter(([k]) => k.toLowerCase() !== 'range') // 移除 Range 头
+            [...request.headers.entries()].filter(([k]) => k.toLowerCase() !== 'range')
           )
         });
         response = await cache.match(fullContentKey);
@@ -366,111 +408,136 @@ async function handleRequest(request, env, ctx) {
       }
     }
 
-    // 构造请求选项
+    /** @type {RequestInit} */
     const fetchOptions = {
       method: request.method,
       headers: new Headers(),
-      redirect: 'follow' // 跟随重定向
+      redirect: 'follow'
     };
 
-    // 处理 POST/PUT/PATCH 请求体（仅 Git/Docker/AI 需要）
+    // Add body for POST/PUT/PATCH requests (Git/Docker/AI inference operations)
     if (['POST', 'PUT', 'PATCH'].includes(request.method) && (isGit || isDocker || isAI)) {
       fetchOptions.body = request.body;
     }
 
-    // 构造请求头
-    const requestHeaders = fetchOptions.headers;
+    // Cast headers to Headers for proper typing
+    const requestHeaders = /** @type {Headers} */ (fetchOptions.headers);
 
-    // Git/Docker/AI 请求：复制原始请求头（避免协议破坏）
+    // Set appropriate headers for Git/Docker/AI vs regular requests
     if (isGit || isDocker || isAI) {
+      // For Git/Docker/AI operations, copy all headers from the original request
+      // This ensures protocol compliance
       for (const [key, value] of request.headers.entries()) {
-        // 跳过可能干扰代理的头部
+        // Skip headers that might cause issues with proxying
         if (!['host', 'connection', 'upgrade', 'proxy-connection'].includes(key.toLowerCase())) {
           requestHeaders.set(key, value);
         }
       }
 
-      // 设置 Git 特有头部
+      // Set Git-specific headers if not present
       if (isGit && !requestHeaders.has('User-Agent')) {
-        requestHeaders.set('User-Agent', 'git/2.34.1'); // Git 客户端默认 UA
+        requestHeaders.set('User-Agent', 'git/2.34.1');
       }
 
-      // 设置 Git 上传/接收包的 Content-Type
-      if (isGit && request.method === 'POST') {
-        if (url.pathname.endsWith('/git-upload-pack') && !requestHeaders.has('Content-Type')) {
+      // For Git upload-pack requests, ensure proper content type
+      if (isGit && request.method === 'POST' && url.pathname.endsWith('/git-upload-pack')) {
+        if (!requestHeaders.has('Content-Type')) {
           requestHeaders.set('Content-Type', 'application/x-git-upload-pack-request');
         }
-        if (url.pathname.endsWith('/git-receive-pack') && !requestHeaders.has('Content-Type')) {
+      }
+
+      // For Git receive-pack requests, ensure proper content type
+      if (isGit && request.method === 'POST' && url.pathname.endsWith('/git-receive-pack')) {
+        if (!requestHeaders.has('Content-Type')) {
           requestHeaders.set('Content-Type', 'application/x-git-receive-pack-request');
         }
       }
 
-      // 设置 AI 推理请求头部
+      // For AI inference requests, ensure proper content type and headers
       if (isAI) {
+        // Ensure JSON content type for AI API requests if not already set
         if (request.method === 'POST' && !requestHeaders.has('Content-Type')) {
-          requestHeaders.set('Content-Type', 'application/json'); // AI API 通常使用 JSON
+          requestHeaders.set('Content-Type', 'application/json');
         }
+
+        // Set appropriate User-Agent for AI requests if not present
         if (!requestHeaders.has('User-Agent')) {
-          requestHeaders.set('User-Agent', 'Xget-AI-Proxy/1.0'); // 自定义 AI 代理 UA
+          requestHeaders.set('User-Agent', 'Xget-AI-Proxy/1.0');
         }
       }
     } else {
-      // 普通文件下载请求：设置优化头部
+      // Regular file download headers
       Object.assign(fetchOptions, {
         cf: {
-          http3: true, // 启用 HTTP/3
-          cacheTtl: config.CACHE_DURATION, // 缓存 TTL（秒）
-          cacheEverything: true, // 缓存所有内容
-          minify: { // 压缩资源
+          http3: true,
+          cacheTtl: config.CACHE_DURATION,
+          cacheEverything: true,
+          minify: {
             javascript: true,
             css: true,
             html: true
           },
-          preconnect: true // 预连接优化
+          preconnect: true
         }
       });
 
-      requestHeaders.set('Accept-Encoding', 'gzip, deflate, br'); // 支持压缩
-      requestHeaders.set('Connection', 'keep-alive'); // 保持长连接
-      requestHeaders.set('User-Agent', 'Wget/1.21.3'); // 默认 UA
-      requestHeaders.set('Origin', request.headers.get('Origin') || '*'); // 允许跨域
+      requestHeaders.set('Accept-Encoding', 'gzip, deflate, br');
+      requestHeaders.set('Connection', 'keep-alive');
+      requestHeaders.set('User-Agent', 'Wget/1.21.3');
+      requestHeaders.set('Origin', request.headers.get('Origin') || '*');
 
-      // 处理 Range 请求和媒体文件的压缩
+      // Handle range requests - but don't forward Range header if we need to cache full content
       const rangeHeader = request.headers.get('Range');
+
+      // Detect media files to avoid compression for better Range support
       const isMediaFile = targetUrl.match(
         /\.(mp4|avi|mkv|mov|wmv|flv|webm|mp3|wav|flac|aac|ogg|jpg|jpeg|png|gif|bmp|svg|pdf|zip|rar|7z|tar|gz|bz2|xz)$/i
       );
 
       if (isMediaFile || rangeHeader) {
-        requestHeaders.set('Accept-Encoding', 'identity'); // 媒体文件不压缩
+        // For media files or range requests, avoid compression to ensure proper byte-range support
+        requestHeaders.set('Accept-Encoding', 'identity');
       }
 
+      // For Range requests, we need to decide whether to forward the Range header
+      // If we want to cache the full content first, don't send Range to origin
       if (rangeHeader) {
-        requestHeaders.set('Range', rangeHeader); // 传递 Range 头
+        // Check if we already have full content cached
+        const fullContentKey = new Request(targetUrl, {
+          method: request.method,
+          headers: new Headers(
+            [...request.headers.entries()].filter(([k]) => k.toLowerCase() !== 'range')
+          )
+        });
+
+        // If we're going to try to get full content for caching, don't send Range header
+        // This will be handled in the retry logic
+        requestHeaders.set('Range', rangeHeader);
       }
     }
 
-    // 实现重试机制（最多 MAX_RETRIES 次）
+    // Implement retry mechanism
     let attempts = 0;
     while (attempts < config.MAX_RETRIES) {
       try {
-        monitor.mark(`attempt_${attempts}`); // 记录尝试次数
+        monitor.mark(`attempt_${attempts}`);
 
-        // 设置超时（使用 AbortController）
+        // Fetch with timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), config.TIMEOUT_SECONDS * 1000);
 
-        // 构造最终请求选项（包含信号和头部）
-        const finalFetchOptions = {
-          ...fetchOptions,
-          signal: controller.signal
-        };
+        // For Git/Docker operations, don't use Cloudflare-specific options
+        const finalFetchOptions =
+          isGit || isDocker
+            ? { ...fetchOptions, signal: controller.signal }
+            : { ...fetchOptions, signal: controller.signal };
 
-        // 处理 HEAD 请求（确保获取 Content-Length）
+        // Special handling for HEAD requests to ensure Content-Length header
         if (request.method === 'HEAD') {
+          // First, try the HEAD request
           response = await fetch(targetUrl, finalFetchOptions);
 
-          // 如果 HEAD 响应缺少 Content-Length，重试 GET 请求获取
+          // If HEAD request succeeds but lacks Content-Length, do a GET request to get it
           if (response.ok && !response.headers.get('Content-Length')) {
             const getResponse = await fetch(targetUrl, {
               ...finalFetchOptions,
@@ -478,13 +545,14 @@ async function handleRequest(request, env, ctx) {
             });
 
             if (getResponse.ok) {
-              // 从 GET 响应中复制 Content-Length 到 HEAD 响应
+              // Create a new response with HEAD method but include Content-Length from GET
               const headHeaders = new Headers(response.headers);
               const contentLength = getResponse.headers.get('Content-Length');
+
               if (contentLength) {
                 headHeaders.set('Content-Length', contentLength);
               } else {
-                // 若 GET 响应仍无 Content-Length，读取 body 计算长度
+                // If still no Content-Length, calculate it from the response body
                 const arrayBuffer = await getResponse.arrayBuffer();
                 headHeaders.set('Content-Length', arrayBuffer.byteLength.toString());
               }
@@ -497,137 +565,139 @@ async function handleRequest(request, env, ctx) {
             }
           }
         } else {
-          response = await fetch(targetUrl, finalFetchOptions); // 普通请求
+          response = await fetch(targetUrl, finalFetchOptions);
         }
 
-        clearTimeout(timeoutId); // 清除超时计时器
+        clearTimeout(timeoutId);
 
-        // 检查响应状态（200 或 206 视为成功）
         if (response.ok || response.status === 206) {
-          monitor.mark('success'); // 记录成功
-          break; // 退出重试循环
+          monitor.mark('success');
+          break;
         }
 
-        // 处理 Docker 认证失败（401 状态码）
+        // For container registries, handle authentication challenges more intelligently
         if (isDocker && response.status === 401) {
-          monitor.mark('docker_auth_challenge'); // 记录认证挑战
+          monitor.mark('docker_auth_challenge');
 
-          // 尝试获取公共令牌（无认证头）
+          // For container registries, first check if we can get a token without credentials
+          // This allows access to public repositories
           const authenticateStr = response.headers.get('WWW-Authenticate');
           if (authenticateStr) {
             try {
               const wwwAuthenticate = parseAuthenticate(authenticateStr);
-              let scope = '';
 
-              // 推断 Docker Hub 的认证范围（处理官方镜像）
-              const pathParts = url.pathname.split('/');
-              if (pathParts.length >= 6 && 
-                  pathParts[1] === 'v2' && 
-                  pathParts[2] === 'cr' && 
-                  pathParts[3] === 'docker') {
-                const repoParts = pathParts.slice(4, -2); // 提取仓库路径（如 alpine）
-                if (repoParts.length > 0) {
-                  let repoName = repoParts.join('/');
-                  // 官方镜像添加 library/ 前缀
-                  if (!repoName.includes('/') && !repoName.includes(':')) {
-                    repoName = `library/${repoName}`;
-                  }
-                  scope = `repository:${repoName}:pull`; // 正确的认证范围
+              // Infer scope from the TARGET URL PATH for container registry requests
+              let scope = '';
+              const targetUrlObj = new URL(targetUrl);
+              const targetPathParts = targetUrlObj.pathname.split('/');
+
+              // Docker Hub的路径格式通常为 /v2/<repo>/manifests/<tag> 或 /v2/<repo>/blobs/<sha>
+              if (targetPathParts.length >= 3 && targetPathParts[1] === 'v2') {
+                // 处理官方镜像（如library/alpine）或非官方镜像（如username/repo）
+                if (targetPathParts[2] === 'manifests' && targetPathParts.length >= 4) {
+                  // 仓库名称为 targetPathParts[3]（如alpine）或 library/<name>
+                  const repoName = targetPathParts[3] === 'manifests' ? 
+                    (targetPathParts[4] === 'library' ? `${targetPathParts[5]}` : targetPathParts[4]) : 
+                    targetPathParts[3];
+                  scope = `repository:${repoName}:pull`;
+                } else if (targetPathParts[2] !== 'manifests' && targetPathParts[2] !== 'blobs') {
+                  // 直接匹配仓库名（如v2/alpine/...）
+                  scope = `repository:${targetPathParts[2]}:pull`;
                 }
               }
 
-              // 若无法推断范围，使用默认公共仓库
-              if (!scope) {
-                scope = 'repository:library/hello-world:pull';
-              }
-
-              // 获取公共令牌
-              const tokenResponse = await fetchToken(wwwAuthenticate, scope, '');
+              // Try to get a token for public access (without authorization)
+              const tokenResponse = await fetchToken(wwwAuthenticate, scope || '', '');
               if (tokenResponse.ok) {
                 const tokenData = await tokenResponse.json();
                 if (tokenData.token) {
-                  // 使用令牌重试原始请求
+                  // Retry the original request with the obtained token
                   const retryHeaders = new Headers(requestHeaders);
                   retryHeaders.set('Authorization', `Bearer ${tokenData.token}`);
+
                   const retryResponse = await fetch(targetUrl, {
                     ...finalFetchOptions,
                     headers: retryHeaders
                   });
 
                   if (retryResponse.ok) {
-                    response = retryResponse; // 重试成功
+                    response = retryResponse;
                     monitor.mark('success');
                     break;
                   }
                 }
               }
             } catch (error) {
-              console.log('获取令牌失败:', error); // 记录错误日志
+              console.log('Token fetch failed:', error);
             }
           }
 
-          // 无法获取令牌，返回未授权响应
+          // If token fetch failed or didn't work, return the unauthorized response
+          // Only return this if we truly can't access the resource
           return responseUnauthorized(url);
         }
 
-        // 客户端错误（4xx）无需重试
+        // Don't retry on client errors (4xx) - these won't improve with retries
         if (response.status >= 400 && response.status < 500) {
           monitor.mark('client_error');
           break;
         }
 
-        // 服务端错误（5xx）或重定向（3xx）重试
         attempts++;
         if (attempts < config.MAX_RETRIES) {
           await new Promise(resolve => setTimeout(resolve, config.RETRY_DELAY_MS * attempts));
         }
       } catch (error) {
         attempts++;
-        if (error.name === 'AbortError') {
-          return createErrorResponse('请求超时', 408); // 超时错误
+        if (error instanceof Error && error.name === 'AbortError') {
+          return createErrorResponse('Request timeout', 408);
         }
         if (attempts >= config.MAX_RETRIES) {
+          const message = error instanceof Error ? error.message : String(error);
           return createErrorResponse(
-            `重试 ${config.MAX_RETRIES} 次后失败: ${error.message}`,
+            `Failed after ${config.MAX_RETRIES} attempts: ${message}`,
             500,
             true
-          ); // 最终失败
+          );
         }
-        // 等待后重试
+        // Wait before retrying
         await new Promise(resolve => setTimeout(resolve, config.RETRY_DELAY_MS * attempts));
       }
     }
 
-    // 检查最终响应是否有效
+    // Check if we have a valid response after all attempts
     if (!response) {
-      return createErrorResponse('所有重试尝试均失败', 500, true);
+      return createErrorResponse('No response received after all retry attempts', 500, true);
     }
 
+    // If response is still not ok after all retries, return the error
     if (!response.ok && response.status !== 206) {
-      // Docker 认证失败的特殊处理
+      // For Docker authentication errors that we couldn't resolve with anonymous tokens,
+      // return a more helpful error message
       if (isDocker && response.status === 401) {
         const errorText = await response.text().catch(() => '');
         return createErrorResponse(
-          `需要认证才能访问此资源（可能是私有仓库）。原始错误: ${errorText}`,
+          `Authentication required for this container registry resource. This may be a private repository. Original error: ${errorText}`,
           401,
           true
         );
       }
-      // 其他服务端错误
-      const errorText = await response.text().catch(() => '未知错误');
+      const errorText = await response.text().catch(() => 'Unknown error');
       return createErrorResponse(
-        `上游服务器错误 (${response.status}): ${errorText}`,
+        `Upstream server error (${response.status}): ${errorText}`,
         response.status,
         true
       );
     }
 
-    // 处理响应体（如 URL 重写）
+    // Handle URL rewriting for different platforms
     let responseBody = response.body;
 
-    // PyPI 简单索引 URL 重写（files.pythonhosted.org → 自身）
+    // Handle PyPI simple index URL rewriting
     if (platform === 'pypi' && response.headers.get('content-type')?.includes('text/html')) {
       const originalText = await response.text();
+      // Rewrite URLs in the response body to go through the Cloudflare Worker
+      // files.pythonhosted.org URLs should be rewritten to go through our pypi/files endpoint
       const rewrittenText = originalText.replace(
         /https:\/\/files\.pythonhosted\.org/g,
         `${url.origin}/pypi/files`
@@ -640,9 +710,11 @@ async function handleRequest(request, env, ctx) {
       });
     }
 
-    // npm 注册表 URL 重写（registry.npmjs.org → 自身）
+    // Handle npm registry URL rewriting
     if (platform === 'npm' && response.headers.get('content-type')?.includes('application/json')) {
       const originalText = await response.text();
+      // Rewrite tarball URLs in npm registry responses to go through our npm endpoint
+      // https://registry.npmjs.org/package/-/package-version.tgz -> https://xget.xi-xu.me/npm/package/-/package-version.tgz
       const rewrittenText = originalText.replace(
         /https:\/\/registry\.npmjs\.org\/([^\/]+)/g,
         `${url.origin}/npm/$1`
@@ -655,28 +727,54 @@ async function handleRequest(request, env, ctx) {
       });
     }
 
-    // 构造最终响应头
+    // Prepare response headers
     const headers = new Headers(response.headers);
 
-    // 非 Git/Docker 请求添加安全头和缓存控制
-    if (!isGit && !isDocker) {
+    if (isGit || isDocker) {
+      // For Git/Docker operations, preserve all headers from the upstream response
+      // These protocols are very sensitive to header changes
+      // Don't add any additional headers that might interfere with protocol operation
+      // The response headers from upstream should be passed through as-is
+    } else {
+      // Regular file download headers
       headers.set('Cache-Control', `public, max-age=${config.CACHE_DURATION}`);
-      headers.set('X-Content-Type-Options', 'nosniff'); // 防止 MIME 类型嗅探
-      headers.set('Accept-Ranges', 'bytes'); // 支持 Range 请求
-      addSecurityHeaders(headers); // 添加安全头
+      headers.set('X-Content-Type-Options', 'nosniff');
+      headers.set('Accept-Ranges', 'bytes');
+
+      // Ensure Content-Length is present for proper Range support
+      if (!headers.has('Content-Length') && response.status === 200) {
+        // If Content-Length is missing and we have access to the body, calculate it
+        try {
+          const contentLength = response.headers.get('Content-Length');
+          if (contentLength) {
+            headers.set('Content-Length', contentLength);
+          }
+        } catch (error) {
+          console.warn('Could not set Content-Length header:', error);
+        }
+      }
+
+      addSecurityHeaders(headers);
     }
 
-    // 构造最终响应对象
+    // Create final response
     const finalResponse = new Response(responseBody, {
       status: response.status,
       headers
     });
 
-    // 缓存成功响应（仅 GET/HEAD 请求，200 状态码）
-    if (!isGit && !isDocker && !isAI && 
-        ['GET', 'HEAD'].includes(request.method) && 
-        response.ok && 
-        response.status === 200) {
+    // Cache successful responses (skip caching for Git, Docker, and AI inference operations)
+    // Only cache GET and HEAD requests to avoid "Cannot cache response to non-GET request" errors
+    // IMPORTANT: Only cache 200 responses, NOT 206 responses (Cloudflare Workers Cache API rejects 206)
+    if (
+      !isGit &&
+      !isDocker &&
+      !isAI &&
+      ['GET', 'HEAD'].includes(request.method) &&
+      response.ok &&
+      response.status === 200 // Only cache complete responses (200), not partial content (206)
+    ) {
+      // For Range requests that resulted in 200, cache the full response
       const rangeHeader = request.headers.get('Range');
       const cacheKey = rangeHeader
         ? new Request(targetUrl, {
@@ -687,24 +785,35 @@ async function handleRequest(request, env, ctx) {
           })
         : new Request(targetUrl, request);
 
-      ctx.waitUntil(caches.default.put(cacheKey, finalResponse.clone())); // 异步缓存
+      ctx.waitUntil(cache.put(cacheKey, finalResponse.clone()));
+
+      // If this was originally a Range request and we got a 200 (full content),
+      // try cache.match again with the original Range request to get 206 response
+      if (rangeHeader && response.status === 200) {
+        const rangedResponse = await cache.match(new Request(targetUrl, request));
+        if (rangedResponse) {
+          monitor.mark('range_cache_hit_after_full_cache');
+          return rangedResponse;
+        }
+      }
     }
 
-    monitor.mark('complete'); // 记录处理完成
+    monitor.mark('complete');
     return isGit || isDocker || isAI
-      ? finalResponse // Git/Docker/AI 直接返回响应
-      : addPerformanceHeaders(finalResponse, monitor); // 普通请求添加性能头
+      ? finalResponse
+      : addPerformanceHeaders(finalResponse, monitor);
   } catch (error) {
-    console.error('处理请求时发生错误:', error); // 记录严重错误
-    return createErrorResponse(`内部服务器错误: ${error.message}`, 500, true);
+    console.error('Error handling request:', error);
+    const message = error instanceof Error ? error.message : String(error);
+    return createErrorResponse(`Internal Server Error: ${message}`, 500, true);
   }
 }
 
 /**
- * 为普通响应添加性能指标头
- * @param {Response} response - 原始响应对象
- * @param {PerformanceMonitor} monitor - 性能监控实例
- * @returns {Response} 添加性能头后的响应对象
+ * Adds performance metrics to response headers
+ * @param {Response} response - The response object
+ * @param {PerformanceMonitor} monitor - Performance monitor instance
+ * @returns {Response} New response with performance headers
  */
 function addPerformanceHeaders(response, monitor) {
   const headers = new Headers(response.headers);
@@ -716,8 +825,14 @@ function addPerformanceHeaders(response, monitor) {
   });
 }
 
-// 导出 Cloudflare Worker 入口
 export default {
+  /**
+   * Main entry point for the Cloudflare Worker
+   * @param {Request} request - The incoming request
+   * @param {Object} env - Environment variables
+   * @param {ExecutionContext} ctx - Cloudflare Workers execution context
+   * @returns {Promise<Response>} The response object
+   */
   fetch(request, env, ctx) {
     return handleRequest(request, env, ctx);
   }
