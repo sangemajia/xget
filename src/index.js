@@ -382,11 +382,13 @@ async function handleRequest(request, env, ctx) {
     /** @type {Cache} */
     // @ts-ignore - Cloudflare Workers cache API
     const cache = caches.default;
-    let response;
+	// 修改至此处
+    const cacheKey = new Request(targetUrl, request);
+	let response;
 
     if (!isGit && !isDocker && !isAI) {
       // For Range requests, try cache match first
-      const cacheKey = new Request(targetUrl, request);
+     //原作者位置 const cacheKey = new Request(targetUrl, request);
       response = await cache.match(cacheKey);
       if (response) {
         monitor.mark('cache_hit');
@@ -765,12 +767,7 @@ async function handleRequest(request, env, ctx) {
     // Only cache GET and HEAD requests to avoid "Cannot cache response to non-GET request" errors
     // IMPORTANT: Only cache 200 responses, NOT 206 responses (Cloudflare Workers Cache API rejects 206)
     if (
-      !isGit &&
-      !isDocker &&
-      !isAI &&
-      ['GET', 'HEAD'].includes(request.method) &&
-      response.ok &&
-      response.status === 200 // Only cache complete responses (200), not partial content (206)
+      !isGit && !isDocker && !isAI && ['GET', 'HEAD'].includes(request.method) && response.ok && response.status === 200 // Only cache complete responses (200), not partial content (206)
     ) {
       // For Range requests that resulted in 200, cache the full response
       const rangeHeader = request.headers.get('Range');
@@ -797,9 +794,7 @@ async function handleRequest(request, env, ctx) {
     }
 
     monitor.mark('complete');
-    return isGit || isDocker || isAI
-      ? finalResponse
-      : addPerformanceHeaders(finalResponse, monitor);
+    return isGit || isDocker || isAI ? finalResponse : addPerformanceHeaders(finalResponse, monitor);
   } catch (error) {
     console.error('Error handling request:', error);
     const message = error instanceof Error ? error.message : String(error);
