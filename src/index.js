@@ -150,7 +150,7 @@ function addSecurityHeaders(headers) {
   headers.set('X-XSS-Protection', '1; mode=block');
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   headers.set('Content-Security-Policy', "default-src 'none'; img-src 'self'; script-src 'none'");
-  headers.set('Permissions-Policy', 'interest-cohort=()");
+  headers.set('Permissions-Policy', 'interest-cohort=()');
   return headers;
 }
 
