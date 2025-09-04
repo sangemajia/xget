@@ -254,6 +254,28 @@ async function handleRequest(request, env, ctx) {
     const url = new URL(request.url);
     const isDocker = isDockerRequest(request, url);
 
+    if (isDocker) {
+      // Validate path format
+      if (!url.pathname.startsWith('/cr/') && !url.pathname.startsWith('/v2/cr/')) {
+        return createErrorResponse('Container registry requests must use /cr/ prefix', 400);
+      }
+      
+      // Transform path
+      const transformedPath = transformPath(url.pathname, 'cr-docker');
+      
+      // Build target URL
+      const targetUrl = `${PLATFORMS['cr-docker']}${transformedPath}${url.search}`;
+      
+      // Handle authentication
+      if (url.pathname === '/v2/auth') {
+        const authResponse = await handleDockerAuth(targetUrl, request.headers.get('Authorization'));
+        return authResponse;
+      }
+      
+      // Forward request to Docker Hub
+      return await forwardDockerRequest(request, targetUrl);
+    }
+
     const monitor = new PerformanceMonitor();
 
     if (isDocker && (url.pathname === '/v2/' || url.pathname === '/v2')) {
