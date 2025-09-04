@@ -354,7 +354,7 @@ async function handleRequest(request, env, ctx) {
     // Handle Docker authentication
     if (isDocker && url.pathname === '/v2/auth') {
      //原作者内容 const newUrl = new URL(`${config.PLATFORMS[platform]}/v2/`);
-			const newUrl = new URL(config.PLATFORMS[platform] ＋ '/v2/`);
+	  const newUrl = new URL(config.PLATFORMS[platform] + '/v2/');
       const resp = await fetch(newUrl.toString(), {
         method: 'GET',
         redirect: 'follow'
