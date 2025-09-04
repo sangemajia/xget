@@ -95,22 +95,9 @@ export const PLATFORMS = {
  * @param {string} string - The string to escape
  * @returns {string} - The escaped string
  */
-function escapeRegExp(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/**
- * Unified path transformation function
- * @param {string} path - The original path
- * @param {string} platformKey - The platform key
- * @returns {string} - The transformed path
- */
 export function transformPath(path, platformKey) {
   // Input validation
-  if (typeof path !== 'string') {
-    return '';
-  }
-  if (path.trim() === '') {
+  if (typeof path !== 'string' || path.trim() === '') {
     return '';
   }
 
@@ -118,28 +105,31 @@ export function transformPath(path, platformKey) {
     return path;
   }
 
+  // Remove platform prefix
   const prefix = `/${platformKey.replace(/-/g, '/')}/`;
-  const escapedPrefix = escapeRegExp(prefix);
-  let transformedPath = path.replace(new RegExp(`^${escapedPrefix}`), '/');
+  const transformedPath = path.replace(new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`), '/');
 
-  // Docker Hub special handling
-    if (platformKey === 'cr-docker') {
-    // Ensure path starts with /v2 for Docker Registry API
-    if (!transformedPath.startsWith('/v2/')) {
-      transformedPath = '/v2' + transformedPath;
-    }
-    
-    // Handle official image path shorthand
+  // Docker Hub specific handling
+  if (platformKey === 'cr-docker') {
     if (transformedPath.startsWith('/v2/')) {
       const parts = transformedPath.split('/');
-      // Check if it's an official image (simple name without slashes, dots, or colons)
-      if (parts.length >= 3 && parts[2] && !parts[2].includes('/') && !parts[2].includes(':') && !parts[2].includes('.')) {
+      
+      // Official image detection (e.g. /v2/alpine)
+      if (parts.length >= 3 && 
+          !parts[2].includes('/') && 
+          !parts[2].includes(':') && 
+          !parts[2].includes('.')) {
         parts.splice(2, 0, 'library');
-        transformedPath = parts.join('/');
+        return parts.join('/');
       }
+      
+      // Custom repository (e.g. /v2/dpanel/dpanel)
+      return transformedPath;
     }
-    return transformedPath;
   }
+
+  return transformedPath;
+}
 
   // Special handling for crates.io API paths
   if (platformKey === 'crates') {
