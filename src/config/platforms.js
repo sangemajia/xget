@@ -102,7 +102,7 @@ export function transformPath(path, platformKey) {
 
   const prefix = `/${platformKey.replace(/-/g, '/')}/`;
   let transformedPath = path.replace(
-    new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
+    new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\\\]/g, '\\$&')}`),
     '/'
   );
 
